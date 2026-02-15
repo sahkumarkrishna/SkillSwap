@@ -49,10 +49,12 @@ export default function Skills() {
   };
 
   useEffect(() => {
-    const params = showMySkills ? { userId: user?._id } : {};
-    dispatch(fetchSkills(params));
-    dispatch(fetchSwapRequests());
-  }, [dispatch, showMySkills, user?._id]);
+    if (user) {
+      const params = showMySkills ? { userId: user._id } : {};
+      dispatch(fetchSkills(params));
+      dispatch(fetchSwapRequests());
+    }
+  }, [dispatch, showMySkills, user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

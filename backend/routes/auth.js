@@ -5,7 +5,7 @@ const authController = require('../controllers/authController');
 const router = express.Router();
 
 const validate = (req, res, next) => {
-  console.log('Validation check - Request body:', req.body);
+  console.log('Validation check - Request boady:', req.body);
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log('Validation errors:', errors.array());

@@ -129,7 +129,7 @@ export default function Badges() {
           </div>
           <div className="p-4 sm:p-6 lg:p-10">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {badges.map((badge) => {
+              {Array.isArray(badges) && badges.length > 0 ? badges.map((badge) => {
                 const isEarned = userBadges?.some(ub => ub.badge?._id === badge._id || ub.name === badge.name);
                 return (
                   <div key={badge._id} className={`group rounded-2xl sm:rounded-3xl p-4 sm:p-6 transition-all border-2 ${
@@ -169,7 +169,15 @@ export default function Badges() {
                     </div>
                   </div>
                 );
-              })}
+              }) : (
+                <div className="col-span-full text-center py-12 sm:py-16">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                    <Award size={40} className="sm:w-12 sm:h-12 text-gray-500" />
+                  </div>
+                  <p className="text-gray-500 text-lg sm:text-xl font-bold mb-2">No badges available</p>
+                  <p className="text-gray-400 text-sm sm:text-base">Check back later for new achievements!</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

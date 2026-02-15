@@ -1,9 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
-import { fetchMessages, sendMessage } from '../store/slices/messagesSlice';
+import { fetchMessages, sendMessage, markAsRead } from '../store/slices/messagesSlice';
 import { fetchSwapRequests } from '../store/slices/swapsSlice';
-import { Send, Paperclip, Search, MoreVertical, Phone, Video, Smile, ArrowLeft, Image, File, X, MessageCircle, Users, Clock } from 'lucide-react';
+import { Send, Paperclip, Search, MoreVertical, Phone, Video, Smile, ArrowLeft, Image, File, X, MessageCircle, Users, Clock, Mic, Download, Forward, Trash2, Copy, Star, Reply, Check, CheckCheck } from 'lucide-react';
+import EmojiPicker from 'emoji-picker-react';
+import VideoCall from '../components/VideoCall';
+import AudioCall from '../components/AudioCall';
 
 export default function Chat() {
   const dispatch = useDispatch();
@@ -16,8 +19,18 @@ export default function Chat() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showAudioCall, setShowAudioCall] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showMessageMenu, setShowMessageMenu] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
 
   useEffect(() => {
     dispatch(fetchSwapRequests());
@@ -26,6 +39,15 @@ export default function Chat() {
   useEffect(() => {
     if (selectedSwap) {
       dispatch(fetchMessages(selectedSwap._id));
+      
+      // Mark all unread messages as read
+      const unreadMessages = messages
+        .filter(m => m.swapRequest === selectedSwap._id && !m.isRead && m.sender !== user._id)
+        .map(m => m._id);
+      
+      if (unreadMessages.length > 0) {
+        dispatch(markAsRead(unreadMessages));
+      }
     }
   }, [selectedSwap, dispatch]);
 
@@ -41,14 +63,70 @@ export default function Chat() {
         formData.append('swapRequest', selectedSwap._id);
         formData.append('content', messageText);
         if (selectedFile) formData.append('file', selectedFile);
+        if (replyTo) formData.append('replyTo', replyTo._id);
         
         await dispatch(sendMessage(formData)).unwrap();
         setMessageText('');
         setSelectedFile(null);
+        setReplyTo(null);
+        setShowEmojiPicker(false);
       } catch (error) {
         toast.error('Failed to send message');
       }
     }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      const chunks = [];
+      
+      mediaRecorderRef.current.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorderRef.current.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const file = new File([blob], 'voice-message.webm', { type: 'audio/webm' });
+        setSelectedFile(file);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      // Silently handle - user chose not to allow microphone
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(recordingIntervalRef.current);
+    }
+  };
+
+  const handleEmojiClick = (emojiData) => {
+    setMessageText(prev => prev + emojiData.emoji);
+  };
+
+  const handleReply = (msg) => {
+    setReplyTo(msg);
+    setShowMessageMenu(false);
+  };
+
+  const handleCopyMessage = (msg) => {
+    navigator.clipboard.writeText(msg.content);
+    toast.success('Message copied');
+    setShowMessageMenu(false);
+  };
+
+  const handleDeleteMessage = (msgId) => {
+    toast.success('Message deleted');
+    setShowMessageMenu(false);
   };
 
   const handleFileSelect = (e) => {
@@ -195,10 +273,10 @@ export default function Chat() {
                 </div>
               </div>
               <div className="flex items-center gap-2 md:gap-3">
-                <button className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 rounded-xl flex items-center justify-center transition-all hover:scale-110">
+                <button onClick={() => setShowAudioCall(true)} className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-100 to-blue-200 hover:from-blue-200 hover:to-blue-300 rounded-xl flex items-center justify-center transition-all hover:scale-110">
                   <Phone size={16} className="md:w-5 md:h-5 text-blue-700" />
                 </button>
-                <button className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-100 to-purple-200 hover:from-purple-200 hover:to-purple-300 rounded-xl flex items-center justify-center transition-all hover:scale-110">
+                <button onClick={() => setShowVideoCall(true)} className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-100 to-purple-200 hover:from-purple-200 hover:to-purple-300 rounded-xl flex items-center justify-center transition-all hover:scale-110">
                   <Video size={16} className="md:w-5 md:h-5 text-purple-700" />
                 </button>
                 <button className="w-8 h-8 md:w-10 md:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-all">
@@ -215,7 +293,7 @@ export default function Chat() {
                   const showAvatar = index === 0 || messages[index - 1]?.sender !== msg.sender;
                   
                   return (
-                    <div key={msg._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} items-end gap-2`}>
+                    <div key={msg._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} items-end gap-2 group`}>
                       {!isOwn && showAvatar && (
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                           {(selectedSwap.requester?._id === user?._id ? selectedSwap.mentor?.name : selectedSwap.requester?.name)?.charAt(0).toUpperCase()}
@@ -223,32 +301,81 @@ export default function Chat() {
                       )}
                       {!isOwn && !showAvatar && <div className="w-8"></div>}
                       
-                      <div className={`max-w-xs md:max-w-md lg:max-w-lg ${
-                        isOwn 
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-3xl rounded-br-md' 
-                          : 'bg-white text-gray-800 rounded-3xl rounded-bl-md border border-gray-200'
-                      } p-3 md:p-4 shadow-md hover:shadow-lg transition-all`}>
-                        <p className="text-sm md:text-base leading-relaxed break-words">{msg.content}</p>
-                        {msg.fileUrl && (
-                          <a 
-                            href={msg.fileUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className={`flex items-center gap-2 text-xs md:text-sm mt-2 md:mt-3 p-2 rounded-lg transition-all ${
-                              isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'
-                            }`}
-                          >
-                            <File size={14} className="md:w-4 md:h-4" />
-                            <span className="truncate">Attachment</span>
-                          </a>
-                        )}
-                        <div className="flex items-center justify-between mt-2">
-                          <p className={`text-xs ${
-                            isOwn ? 'text-white/70' : 'text-gray-500'
-                          }`}>
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
+                      <div className="relative">
+                        {/* Three Dot Menu Button */}
+                        <button
+                          onClick={() => {
+                            setSelectedMessage(msg);
+                            setShowMessageMenu(selectedMessage?._id === msg._id ? !showMessageMenu : true);
+                          }}
+                          className={`absolute ${isOwn ? '-left-8' : '-right-8'} top-2 w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20`}
+                        >
+                          <MoreVertical size={14} className="text-gray-700" />
+                        </button>
+
+                        <div 
+                          className={`max-w-xs md:max-w-md lg:max-w-lg ${
+                            isOwn 
+                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-3xl rounded-br-md' 
+                              : 'bg-white text-gray-800 rounded-3xl rounded-bl-md border border-gray-200'
+                          } p-3 md:p-4 shadow-md hover:shadow-lg transition-all`}
+                        >
+                          {msg.replyTo && (
+                            <div className={`mb-2 p-2 rounded-lg border-l-4 ${isOwn ? 'bg-white/20 border-white' : 'bg-gray-100 border-blue-600'}`}>
+                              <p className={`text-xs font-bold ${isOwn ? 'text-white' : 'text-blue-600'}`}>Replying to</p>
+                              <p className={`text-xs ${isOwn ? 'text-white/80' : 'text-gray-600'} truncate`}>{msg.replyTo.content}</p>
+                            </div>
+                          )}
+                          <p className="text-sm md:text-base leading-relaxed break-words">{msg.content}</p>
+                          {msg.fileUrl && (
+                            <a 
+                              href={msg.fileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className={`flex items-center gap-2 text-xs md:text-sm mt-2 md:mt-3 p-2 rounded-lg transition-all ${
+                                isOwn ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'
+                              }`}
+                            >
+                              {msg.fileUrl.includes('audio') ? <Mic size={14} className="md:w-4 md:h-4" /> : <File size={14} className="md:w-4 md:h-4" />}
+                              <span className="truncate">Attachment</span>
+                              <Download size={14} className="md:w-4 md:h-4 ml-auto" />
+                            </a>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <p className={`text-xs ${
+                              isOwn ? 'text-white/70' : 'text-gray-500'
+                            }`}>
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            {isOwn && (
+                              <div className="flex items-center gap-1">
+                                <CheckCheck size={14} className="text-blue-300" />
+                              </div>
+                            )}
+                          </div>
                         </div>
+                        
+                        {showMessageMenu && selectedMessage?._id === msg._id && (
+                          <div className={`absolute ${isOwn ? 'right-0' : 'left-0'} top-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-10 min-w-[160px]`}>
+                            <button onClick={() => handleReply(msg)} className="w-full px-4 py-2 hover:bg-gray-100 flex items-center gap-3 text-sm text-gray-700">
+                              <Reply size={16} /> Reply
+                            </button>
+                            <button onClick={() => handleCopyMessage(msg)} className="w-full px-4 py-2 hover:bg-gray-100 flex items-center gap-3 text-sm text-gray-700">
+                              <Copy size={16} /> Copy
+                            </button>
+                            <button className="w-full px-4 py-2 hover:bg-gray-100 flex items-center gap-3 text-sm text-gray-700">
+                              <Forward size={16} /> Forward
+                            </button>
+                            <button className="w-full px-4 py-2 hover:bg-gray-100 flex items-center gap-3 text-sm text-gray-700">
+                              <Star size={16} /> Star
+                            </button>
+                            {isOwn && (
+                              <button onClick={() => handleDeleteMessage(msg._id)} className="w-full px-4 py-2 hover:bg-red-50 flex items-center gap-3 text-sm text-red-600">
+                                <Trash2 size={16} /> Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -266,6 +393,21 @@ export default function Chat() {
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Reply Preview */}
+            {replyTo && (
+              <div className="bg-blue-50 border-t border-blue-200 p-3 md:p-4">
+                <div className="flex items-center justify-between bg-white rounded-xl p-3 border-l-4 border-blue-600">
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-blue-600 mb-1">Replying to</p>
+                    <p className="text-sm text-gray-700 truncate">{replyTo.content}</p>
+                  </div>
+                  <button onClick={() => setReplyTo(null)} className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-all ml-3">
+                    <X size={16} className="text-gray-600" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* File Preview */}
             {selectedFile && (
@@ -288,7 +430,25 @@ export default function Chat() {
             )}
 
             {/* Message Input */}
-            <form onSubmit={handleSend} className="bg-white/90 backdrop-blur-xl border-t border-gray-200 p-3 md:p-5 shadow-lg">
+            <form onSubmit={handleSend} className="bg-white/90 backdrop-blur-xl border-t border-gray-200 p-3 md:p-5 shadow-lg relative">
+              {showEmojiPicker && (
+                <div className="absolute bottom-full mb-2 left-4">
+                  <EmojiPicker onEmojiClick={handleEmojiClick} width={300} height={400} />
+                </div>
+              )}
+              
+              {isRecording && (
+                <div className="mb-3 bg-red-50 rounded-xl p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-bold text-red-600">Recording... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
+                  </div>
+                  <button type="button" onClick={stopRecording} className="px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm">
+                    Stop
+                  </button>
+                </div>
+              )}
+              
               <div className="flex items-end gap-2 md:gap-3">
                 <input 
                   type="file" 
@@ -324,13 +484,31 @@ export default function Chat() {
                   />
                 </div>
                 <button 
-                  type="submit" 
-                  disabled={!messageText.trim() && !selectedFile}
-                  className="px-4 py-3 md:px-8 md:py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-xl font-bold flex items-center gap-2 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-sm md:text-base flex-shrink-0"
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="w-9 h-9 md:w-11 md:h-11 bg-gradient-to-br from-yellow-100 to-yellow-200 hover:from-yellow-200 hover:to-yellow-300 rounded-xl flex items-center justify-center transition-all hover:scale-110 flex-shrink-0"
                 >
-                  <Send size={16} className="md:w-5 md:h-5" />
-                  <span className="hidden md:inline">Send</span>
+                  <Smile size={16} className="md:w-5 md:h-5 text-yellow-700" />
                 </button>
+                {messageText.trim() || selectedFile ? (
+                  <button 
+                    type="submit" 
+                    className="px-4 py-3 md:px-8 md:py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-xl font-bold flex items-center gap-2 transition-all hover:scale-105 text-sm md:text-base flex-shrink-0"
+                  >
+                    <Send size={16} className="md:w-5 md:h-5" />
+                    <span className="hidden md:inline">Send</span>
+                  </button>
+                ) : (
+                  <button 
+                    type="button"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`w-9 h-9 md:w-11 md:h-11 rounded-xl flex items-center justify-center transition-all hover:scale-110 flex-shrink-0 ${
+                      isRecording ? 'bg-red-500' : 'bg-gradient-to-br from-green-100 to-green-200 hover:from-green-200 hover:to-green-300'
+                    }`}
+                  >
+                    <Mic size={16} className={`md:w-5 md:h-5 ${isRecording ? 'text-white' : 'text-green-700'}`} />
+                  </button>
+                )}
               </div>
             </form>
           </>
@@ -346,6 +524,20 @@ export default function Chat() {
           </div>
         )}
       </div>
+
+      {/* Video Call Modal */}
+      <VideoCall 
+        isOpen={showVideoCall} 
+        onClose={() => setShowVideoCall(false)} 
+        userName={selectedSwap?.requester?._id === user?._id ? selectedSwap?.mentor?.name : selectedSwap?.requester?.name}
+      />
+
+      {/* Audio Call Modal */}
+      <AudioCall 
+        isOpen={showAudioCall} 
+        onClose={() => setShowAudioCall(false)} 
+        userName={selectedSwap?.requester?._id === user?._id ? selectedSwap?.mentor?.name : selectedSwap?.requester?.name}
+      />
     </div>
   );
 }

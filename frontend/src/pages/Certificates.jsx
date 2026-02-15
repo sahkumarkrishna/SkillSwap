@@ -21,10 +21,10 @@ export default function Certificates() {
     toast.success('Certificate link copied to clipboard!');
   };
 
-  const filteredCertificates = certificates?.filter(cert =>
+  const filteredCertificates = Array.isArray(certificates) ? certificates.filter(cert =>
     cert.skillName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     cert.mentorName?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  ) : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-4 sm:py-8 lg:py-12 px-3 sm:px-4">
@@ -49,7 +49,7 @@ export default function Certificates() {
               <Award size={16} className="sm:w-5 sm:h-5 text-blue-600" />
               <p className="text-xs sm:text-sm font-bold text-gray-600">Total</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-blue-600">{certificates?.length || 0}</p>
+            <p className="text-2xl sm:text-3xl font-black text-blue-600">{Array.isArray(certificates) ? certificates.length : 0}</p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/20">
             <div className="flex items-center gap-2 mb-2">
@@ -57,7 +57,7 @@ export default function Certificates() {
               <p className="text-xs sm:text-sm font-bold text-gray-600">This Year</p>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-green-600">
-              {certificates?.filter(c => new Date(c.issuedAt).getFullYear() === new Date().getFullYear()).length || 0}
+              {Array.isArray(certificates) ? certificates.filter(c => new Date(c.issuedAt).getFullYear() === new Date().getFullYear()).length : 0}
             </p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/20">
@@ -66,7 +66,7 @@ export default function Certificates() {
               <p className="text-xs sm:text-sm font-bold text-gray-600">Hours</p>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-purple-600">
-              {certificates?.reduce((sum, c) => sum + (c.duration || 0), 0) || 0}
+              {Array.isArray(certificates) ? certificates.reduce((sum, c) => sum + (c.duration || 0), 0) : 0}
             </p>
           </div>
           <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/20">
@@ -75,7 +75,7 @@ export default function Certificates() {
               <p className="text-xs sm:text-sm font-bold text-gray-600">Skills</p>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-orange-600">
-              {new Set(certificates?.map(c => c.skillName)).size || 0}
+              {Array.isArray(certificates) ? new Set(certificates.map(c => c.skillName)).size : 0}
             </p>
           </div>
         </div>

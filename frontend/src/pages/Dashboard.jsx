@@ -28,7 +28,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!user?.id) return;
+      if (!user?._id && !user?.id) return;
       
       try {
         await Promise.all([
@@ -37,14 +37,14 @@ export default function Dashboard() {
           dispatch(fetchSwapRequests()).unwrap(),
           dispatch(fetchWallet()).unwrap(),
           dispatch(fetchNotifications()).unwrap(),
-          dispatch(fetchReviews(user.id)).unwrap()
+          dispatch(fetchReviews(user._id || user.id)).unwrap()
         ]);
       } catch (error) {
         console.error('Dashboard load error:', error);
       }
     };
     loadData();
-  }, [dispatch, user?.id]);
+  }, [dispatch, user?._id, user?.id]);
 
   const avgRating = reviews.length > 0 
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
@@ -53,8 +53,9 @@ export default function Dashboard() {
   const unreadNotifications = notifications.filter(n => !n.read).length;
   const completedSessions = sessions.filter(s => s.status === 'Completed').length;
   const totalSwaps = swaps.filter(s => s.status === 'Accepted').length;
-  const learningCount = swaps.filter(s => s.requester?.id === user?.id || s.requester === user?.id).length;
-  const teachingCount = swaps.filter(s => s.mentor?.id === user?.id || s.mentor === user?.id).length;
+  const userId = user?._id || user?.id;
+  const learningCount = swaps.filter(s => s.requester?._id === userId || s.requester?.id === userId || s.requester === userId).length;
+  const teachingCount = swaps.filter(s => s.mentor?._id === userId || s.mentor?.id === userId || s.mentor === userId).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-4 sm:py-6 lg:py-8 px-4">
